@@ -3,50 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>천옵대 드래프트 - 무한로딩 방지 버전</title>
+    <title>천옵대 드래프트 - 현황판 포함 무결점 버전</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
         :root {
             --bg: #ffffff; --card-bg: #f8fafc; --border: #e2e8f0; --mint: #00e0b5;
-            --에스카: #ff4655; --미라지: #22c55e; --안스: #facc15; --미정: #64748b;
-            --text: #1e293b;
+            --에스카: #ff4655; --미라지: #22c55e; --안스: #a855f7; --감블러: #facc15;
+            --gold: #fbbf24; --text: #1e293b;
         }
         body { background-color: var(--bg); color: var(--text); font-family: 'Pretendard', sans-serif; margin: 0; overflow: hidden; }
 
         #접속화면 { position: fixed; inset: 0; background: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
         .감독박스 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .입장버튼 { width: 160px; height: 160px; border-radius: 20px; cursor: pointer; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.1rem; }
-        .에스카_bg { background: var(--에스카); } .미라지_bg { background: var(--미라지); } .안스_bg { background: var(--안스); } .미정_bg { background: var(--미정); }
+        .입장버튼 { width: 160px; height: 160px; border-radius: 20px; cursor: pointer; border: none; color: white; font-weight: bold; font-size: 1.1rem; transition: transform 0.2s; }
+        .입장버튼:hover { transform: scale(1.05); }
+        .에스카_bg { background: var(--에스카); } .미라지_bg { background: var(--미라지); } .안스_bg { background: var(--안스); } .감블러_bg { background: var(--감블러); }
 
-        #메인화면 { display: none; padding: 20px; height: 100vh; box-sizing: border-box; }
-        .헤더 { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); margin-bottom: 15px; padding-bottom: 10px; }
-        .교체버튼 { background: #f1f5f9; color: #64748b; border: 1px solid var(--border); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
-
-        .컨트롤 { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
-        .btn { padding: 8px 20px; border-radius: 6px; border: 1px solid var(--border); background: #f8fafc; cursor: pointer; font-weight: bold; }
+        #메인화면 { display: none; padding: 20px; height: 100vh; box-sizing: border-box; flex-direction: column; }
+        .헤더 { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; flex-shrink: 0; }
+        
+        .컨트롤 { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 15px 0; flex-shrink: 0; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); background: #f8fafc; cursor: pointer; font-weight: bold; color: #64748b; }
         .btn.active { background: var(--mint); color: white; border-color: var(--mint); }
+        .btn.s-tier { border-color: var(--gold); color: #b45309; }
+        .btn.s-tier.active { background: var(--gold); color: white; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        .콘텐츠 { display: grid; grid-template-columns: 1fr 300px; gap: 20px; height: calc(100vh - 160px); }
-        .선수그리드 { display: grid; grid-template-columns: repeat(auto-fill, 130px); gap: 15px; overflow-y: auto; align-content: start; }
-        .카드 { background: var(--card-bg); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; border: 2px solid transparent; font-weight: bold; height: 100px; display: flex; align-items: center; justify-content: center; }
+        .콘텐츠 { flex: 1; overflow-y: auto; min-height: 0; }
+        .선수그리드 { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; padding-bottom: 20px; }
+        
+        .카드 { background: var(--card-bg); border-radius: 12px; padding: 20px 10px; text-align: center; cursor: pointer; border: 2px solid transparent; font-weight: bold; font-size: 1rem; position: relative; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80px; }
         .카드.selected { border-color: var(--mint); background: rgba(0,224,181,0.05); color: var(--mint); }
+        .카드.is-high { border: 2px solid var(--gold); }
 
-        .사이드 { background: var(--card-bg); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; border: 1px solid var(--border); }
-        .경합창 { flex: 1; background: #ffffff; border-radius: 8px; margin-top: 10px; overflow-y: auto; padding: 10px; border: 1px solid var(--border); }
-        .경합아이템 { padding: 15px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; cursor: pointer; text-align: center; border: 1px solid var(--border); font-weight: bold; }
+        .점박스 { position: absolute; bottom: 8px; display: flex; gap: 4px; }
+        .점 { width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; }
+
+        /* 실시간 현황판 스타일 */
+        #현황판 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 15px; background: #f1f5f9; border-radius: 15px; margin-top: 15px; flex-shrink: 0; }
+        .감독현황 { background: white; padding: 10px; border-radius: 10px; border-top: 4px solid var(--border); min-height: 60px; }
+        .현황이름 { font-size: 0.85rem; font-weight: 900; margin-bottom: 8px; display: block; }
+        .현황리스트 { display: flex; flex-wrap: wrap; gap: 4px; }
+        .현황선수 { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; background: #eee; font-weight: bold; }
 
         #사다리화면 { display: none; position: fixed; inset: 0; background: #ffffff; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
         .사다리_박스 { background: #ffffff; padding: 30px; border-radius: 20px; border: 2px solid var(--mint); text-align: center; position: relative; }
-        #canvas_wrap { position: relative; width: 400px; height: 400px; margin: 15px 0; background: #fafafa; border: 1px solid var(--border); }
-        #canvas { position: absolute; top:0; left:0; }
-        
-        .러너 { position: absolute; width: 60px; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; z-index: 10; pointer-events: none; visibility: hidden; }
-        .러너_아이콘 { width: 36px; height: 36px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; margin-bottom: 4px; }
-        .러너_이름 { background: rgba(0,0,0,0.85); color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; white-space: nowrap; }
-
-        .라벨줄 { display: flex; justify-content: space-around; width: 400px; font-weight: bold; }
-        .라벨 { width: 80px; text-align: center; font-size: 0.9rem; }
-        #결과팝업 { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; z-index: 100; pointer-events: none; }
-        #결과팝업 h1 { font-size: 3.5rem; margin: 0; text-shadow: 0 0 20px white; font-weight: 900; }
+        #canvas_wrap { position: relative; width: 440px; height: 440px; background: #fafafa; border: 1px solid var(--border); margin: 15px 0; }
+        canvas { position: absolute; top:0; left:0; display: block; }
+        .러너 { position: absolute; width: 60px; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; visibility: hidden; z-index: 10; }
+        .러너_아이콘 { width: 34px; height: 34px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; }
+        #결과팝업 { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; z-index: 100; width: 100%; text-align: center; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -54,247 +61,258 @@
     <div id="접속화면">
         <h1 style="margin-bottom:30px;">DRAFT SHOWDOWN</h1>
         <div class="감독박스">
-            <button class="입장버튼 에스카_bg" onclick="입장('에스카')">에스카</button>
-            <button class="입장버튼 미라지_bg" onclick="입장('미라지')">미라지</button>
-            <button class="입장버튼 안스_bg" onclick="입장('안스')">안스</button>
-            <button class="입장버튼 미정_bg" onclick="입장('미정')">미정</button>
+            <button class="입장버튼 에스카_bg" onclick="입장('에스카')">에스카님</button>
+            <button class="입장버튼 미라지_bg" onclick="입장('미라지')">미라지님</button>
+            <button class="입장버튼 안스_bg" onclick="입장('안스')">안스님</button>
+            <button class="입장버튼 감블러_bg" onclick="입장('감블러')">감블러님</button>
         </div>
     </div>
 
     <div id="메인화면">
         <div class="헤더">
-            <h2 style="margin:0;">천옵대 DRAFT</h2>
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div id="배지" style="padding:4px 12px; border-radius:15px; border:1px solid; font-weight:bold; font-size: 0.85rem;"></div>
-                <button class="교체버튼" onclick="감독교체()">감독 변경</button>
+            <h2 id="상단타이틀" style="margin:0;"></h2>
+            <div style="display:flex; gap:8px;">
+                <button onclick="if(confirm('전체 데이터를 초기화할까요?')) db.ref('draft').remove();" style="border:none; background:#fee2e2; color:#ef4444; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight: bold; font-size:0.8rem;">초기화</button>
+                <button onclick="location.reload()" style="border:1px solid #ddd; background:white; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem;">감독 변경</button>
             </div>
         </div>
+        
         <div class="컨트롤">
-            <button class="btn active" onclick="탭(this, '탱커')">탱커</button>
-            <button class="btn" onclick="탭(this, '딜러')">딜러</button>
-            <button class="btn" onclick="탭(this, '힐러')">힐러</button>
-            <span style="width:10px;"></span>
-            <button class="btn active" onclick="티어(this, '고티어')">고티어</button>
-            <button class="btn" onclick="티어(this, '저티어')">저티어</button>
+            <button class="btn s-tier active" onclick="탭변경(this,'탱커',true)">탱커(S)</button>
+            <button class="btn s-tier" onclick="탭변경(this,'딜러',true)">딜러(S)</button>
+            <button class="btn s-tier" onclick="탭변경(this,'힐러',true)">힐러(S)</button>
+            <button class="btn" id="tab-탱커-low" onclick="탭변경(this,'탱커',false)">탱커</button>
+            <button class="btn" id="tab-딜러-low" onclick="탭변경(this,'딜러',false)">딜러</button>
+            <button class="btn" id="tab-힐러-low" onclick="탭변경(this,'힐러',false)">힐러</button>
         </div>
+
         <div class="콘텐츠">
             <div class="선수그리드" id="선수목록"></div>
-            <div class="사이드">
-                <h4 style="margin:0; color:#64748b;">실시간 경합</h4>
-                <div class="경합창" id="경합목록"></div>
-            </div>
+        </div>
+
+        <div id="현황판">
+            <div class="감독현황" style="border-color: var(--에스카);"><span class="현황이름" style="color:var(--에스카)">에스카</span><div id="list-에스카" class="현황리스트"></div></div>
+            <div class="감독현황" style="border-color: var(--미라지);"><span class="현황이름" style="color:var(--미라지)">미라지</span><div id="list-미라지" class="현황리스트"></div></div>
+            <div class="감독현황" style="border-color: var(--안스);"><span class="현황이름" style="color:var(--안스)">안스</span><div id="list-안스" class="현황리스트"></div></div>
+            <div class="감독현황" style="border-color: var(--감블러);"><span class="현황이름" style="color:var(--감블러)">감블러</span><div id="list-감블러" class="현황리스트"></div></div>
         </div>
     </div>
 
     <div id="사다리화면">
         <div class="사다리_박스">
-            <h2 id="대상자" style="margin:0;"></h2>
-            <div id="상단라벨" class="라벨줄" style="margin-top:15px;"></div>
+            <h2 id="추첨제목" style="margin:0; color:#ef4444;">⚡ 경합 발생! 자동 추첨</h2>
+            <div id="상단라벨" style="display:flex; justify-content:space-around; width:440px; font-weight:bold; margin-top:20px;"></div>
             <div id="canvas_wrap">
                 <canvas id="canvas"></canvas>
-                <div id="에스카_러너" class="러너"><div class="러너_아이콘 에스카_bg">E</div><div class="러너_이름">에스카</div></div>
-                <div id="미라지_러너" class="러너"><div class="러너_아이콘 미라지_bg">M</div><div class="러너_이름">미라지</div></div>
-                <div id="안스_러너" class="러너"><div class="러너_아이콘 안스_bg">A</div><div class="러너_이름">안스</div></div>
-                <div id="미정_러너" class="러너"><div class="러너_아이콘 미정_bg">?</div><div class="러너_이름">미정</div></div>
+                <div id="에스카_러너" class="러너"><div class="러너_아이콘 에스카_bg">E</div></div>
+                <div id="미라지_러너" class="러너"><div class="러너_아이콘 미라지_bg">M</div></div>
+                <div id="안스_러너" class="러너"><div class="러너_아이콘 안스_bg">A</div></div>
+                <div id="감블러_러너" class="러너"><div class="러너_아이콘 감블러_bg">G</div></div>
+                <div id="결과팝업"><h1 id="결과글자" style="font-size:2.5rem; font-weight:900; text-shadow:0 0 10px white;"></h1></div>
             </div>
-            <div id="하단라벨" class="라벨줄"></div>
-            <div style="margin-top:20px;">
-                <button id="시작버튼" onclick="순차추첨()" style="padding:12px 40px; background:var(--mint); border:none; border-radius:8px; font-weight:900; cursor:pointer; color:white;">추첨 시작</button>
-                <button id="확정버튼" onclick="복귀()" style="display:none; padding:12px 40px; background:#64748b; border:none; border-radius:8px; font-weight:900; cursor:pointer; color:white;">결과 확정</button>
+            <div id="하단라벨" style="display:flex; justify-content:space-around; width:440px; font-weight:bold;"></div>
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+                <button id="상태바" style="padding:15px 40px; background:#f1f5f9; border:none; color:#64748b; font-weight:900; border-radius:8px;">잠시 후 자동 시작...</button>
+                <button id="스킵버튼" onclick="스킵()" style="display:none; padding:15px 40px; background:var(--mint); border:none; color:white; font-weight:900; cursor:pointer; border-radius:8px;">결과 스킵</button>
+                <button id="닫기버튼" onclick="사다리닫기()" style="display:none; padding:15px 40px; background:#1e293b; border:none; color:white; font-weight:900; cursor:pointer; border-radius:8px;">확인 완료</button>
             </div>
-            <div id="결과팝업"><h1 id="결과글자"></h1></div>
         </div>
     </div>
 
     <script>
+        const firebaseConfig = { databaseURL: "https://chun-op-dae-30ec4-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         const DB = {
-            탱커: { 고티어: ['딴딴', '조디악', '클로이'], 저티어: ['온네', '머독', '양도끼'] },
-            딜러: { 고티어: ['체비', '뽀린걸'], 저티어: ['망개', '김군'] },
-            힐러: { 고티어: ['채윤아', '파니', '모카'], 저티어: ['견자희', '징버거', '비챤'] }
+            탱커: { high: ['딴딴', '조디악', '클로이', '온네'], low: ['머독', '양도끼', '김웰로', '카푸'] },
+            딜러: { high: ['체비', '망개', '뽀린걸', '김군'], low: [] },
+            힐러: { high: ['비챤', '파니', '모카', '견자희'], low: ['징버거'] }
         };
-        const 감독들 = ['에스카', '미라지', '안스', '미정'];
-        let 유저 = '', 포 = '탱커', 티 = '고티어', currentS = '', targets = [], winIdx = 0;
-        let 픽 = JSON.parse(localStorage.getItem('ow_draft_v22')) || { '에스카': [], '미라지': [], '안스': [], '미정': [] };
+        const 감독들 = ['에스카', '미라지', '안스', '감블러'];
+        let 유저 = '', 현재포 = '탱커', 현재티어 = true, 실시간데이터 = {}, 추첨중 = false;
 
-        function 입장(n) {
-            유저 = n; document.getElementById('접속화면').style.display = 'none';
-            document.getElementById('메인화면').style.display = 'block';
-            const b = document.getElementById('배지');
-            b.innerText = n + " 감독"; b.style.color = b.style.borderColor = `var(--${n})`;
-            그리기(); 경합체크();
+        db.ref('draft').on('value', (s) => { 
+            실시간데이터 = s.val() || {}; 
+            if(유저) { 그리기(); 자동경합체크(); 탭상태업데이트(); 현황판갱신(); } 
+        });
+
+        function 입장(n) { 유저 = n; document.getElementById('접속화면').style.display='none'; document.getElementById('메인화면').style.display='flex'; document.getElementById('상단타이틀').innerText=n+" 감독님 입장"; 그리기(); 현황판갱신(); }
+        
+        function 탭변경(btn, pos, isHigh) {
+            if(!isHigh && !포지션고티어완료(pos)) { alert(`S-TIER 영입이 우선입니다.`); return; }
+            현재포 = pos; 현재티어 = isHigh;
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active'); 그리기();
         }
 
-        function 감독교체() {
-            document.getElementById('메인화면').style.display = 'none';
-            document.getElementById('접속화면').style.display = 'flex';
+        function 포지션고티어완료(pos) {
+            const highList = DB[pos].high;
+            const 영입된선수들 = Object.values(실시간데이터).flat();
+            return highList.every(n => 영입된선수들.includes(n));
         }
 
-        function 탭(b, v) { 포 = v; document.querySelectorAll('.btn').forEach((x,i)=>{if(i<3)x.classList.remove('active')}); b.classList.add('active'); 그리기(); }
-        function 티어(b, v) { 티 = v; document.querySelectorAll('.btn').forEach((x,i)=>{if(i>=4)x.classList.remove('active')}); b.classList.add('active'); 그리기(); }
-
-        function 그리기() {
-            document.getElementById('선수목록').innerHTML = DB[포][티].map(n => `
-                <div class="카드 ${픽[유저].includes(n)?'selected':''}" onclick="선택('${n}')">${n}</div>
-            `).join('');
-        }
-
-        function 선택(n) {
-            if(픽[유저].includes(n)) 픽[유저] = 픽[유저].filter(x=>x!==n);
-            else 픽[유저].push(n);
-            localStorage.setItem('ow_draft_v22', JSON.stringify(픽));
-            그리기(); 경합체크();
-        }
-
-        function 경합체크() {
-            const list = document.getElementById('경합목록'); list.innerHTML = "";
-            for(let p in DB) for(let t in DB[p]) DB[p][t].forEach(n => {
-                let s = []; 감독들.forEach(g => { if(픽[g] && 픽[g].includes(n)) s.push(g); });
-                if(s.length > 1) {
-                    const item = document.createElement('div');
-                    item.className = '경합아이템'; item.innerText = n;
-                    item.onclick = () => 사다리탭(n, s);
-                    list.appendChild(item);
-                }
+        function 탭상태업데이트() {
+            ['탱커', '딜러', '힐러'].forEach(pos => {
+                const btn = document.getElementById(`tab-${pos}-low`);
+                if(btn) btn.disabled = !포지션고티어완료(pos);
             });
         }
 
-        let cv, ctx, lines = [];
-        const W = 400, H = 400;
+        function 그리기() {
+            const list = document.getElementById('선수목록');
+            const targetList = 현재티어 ? DB[현재포].high : DB[현재포].low;
+            list.innerHTML = targetList.map(n => {
+                let s = 감독들.filter(g => 실시간데이터[g] && 실시간데이터[g].includes(n));
+                let dots = s.map(g => `<div class="점" style="background:var(--${g})"></div>`).join('');
+                return `<div class="카드 ${현재티어?'is-high':''} ${s.includes(유저)?'selected':''}" onclick="선택('${n}')">${n}<div class="점박스">${dots}</div></div>`;
+            }).join('');
+        }
 
-        function 사다리탭(n, s) {
-            currentS = n; targets = s; winIdx = Math.floor(Math.random() * s.length);
-            document.getElementById('메인화면').style.display = 'none';
-            document.getElementById('사다리화면').style.display = 'flex';
-            document.getElementById('대상자').innerText = n + " 영입 추첨";
-            document.querySelectorAll('.러너').forEach(r => r.style.visibility = 'hidden');
-            document.getElementById('결과팝업').style.display = 'none';
-            document.getElementById('시작버튼').style.display = 'inline-block';
-            document.getElementById('확정버튼').style.display = 'none';
+        function 현황판갱신() {
+            감독들.forEach(g => {
+                const target = document.getElementById(`list-${g}`);
+                const players = 실시간데이터[g] || [];
+                target.innerHTML = players.map(p => `<span class="현황선수">${p}</span>`).join('');
+            });
+        }
 
-            document.getElementById('상단라벨').innerHTML = s.map(g => `<div class="라벨" style="color:var(--${g})">${g}</div>`).join('');
-            document.getElementById('하단라벨').innerHTML = s.map((_, i) => `<div class="라벨">${i===winIdx?'영입':'꽝'}</div>`).join('');
+        function 선택(n) {
+            if(!현재티어 && !포지션고티어완료(현재포)) return;
+            let p = 실시간데이터[유저] || [];
+            p = p.includes(n) ? p.filter(x=>x!==n) : [...p, n];
+            db.ref('draft/'+유저).set(p);
+        }
 
-            cv = document.getElementById('canvas'); cv.width = W; cv.height = H; ctx = cv.getContext('2d');
-            ctx.clearRect(0, 0, W, H); ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2; lines = [];
-            
-            const gap = W / (s.length + 1);
-            for(let i=0; i<s.length; i++) {
-                let x = gap * (i+1);
-                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        function 자동경합체크() {
+            if(추첨중) return;
+            const all = Object.values(DB).flatMap(p => [...p.high, ...p.low]);
+            for(const n of all) {
+                let s = 감독들.filter(g => 실시간데이터[g] && 실시간데이터[g].includes(n));
+                if(s.length > 1) { 추첨중 = true; 사다리준비(n, s); break; }
             }
+        }
 
-            // 가로선 생성 시 무한루프 방지 안전장치
-            for(let i=0; i<s.length-1; i++) {
-                let count = 0, limit = 0;
-                while(count < 2 && limit < 100) {
-                    limit++;
-                    let y = Math.random() * (H - 120) + 60;
-                    if(!lines.some(l => Math.abs(l.y - y) < 40)) {
-                        let x1 = gap * (i+1), x2 = gap * (i+2);
-                        lines.push({i, y, x1, x2});
-                        ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
-                        count++;
-                    }
+        let cv, ctx, lines=[], targets=[], currentS='', winIdx=0, gap=0, isSkipped=false, autoTimer;
+        const W=440, H=440;
+
+        function 사다리준비(n, s) {
+            currentS = n; targets = s; winIdx = Math.floor(Math.random()*s.length); isSkipped = false;
+            document.getElementById('메인화면').style.display='none'; document.getElementById('사다리화면').style.display='flex';
+            document.getElementById('상태바').style.display='inline-block'; document.getElementById('상태바').innerText = "잠시 후 자동 시작...";
+            document.getElementById('닫기버튼').style.display='none'; document.getElementById('스킵버튼').style.display='none'; document.getElementById('결과팝업').style.display='none';
+            document.querySelectorAll('.러너').forEach(r=>r.style.visibility='hidden');
+
+            document.getElementById('상단라벨').innerHTML = s.map(g=>`<div style="color:var(--${g})">${g}</div>`).join('');
+            document.getElementById('하단라벨').innerHTML = s.map((_,i)=>`<div>${i===winIdx?'성공':'꽝'}</div>`).join('');
+
+            cv = document.getElementById('canvas'); ctx = cv.getContext('2d'); cv.width = W; cv.height = H;
+            ctx.clearRect(0, 0, W, H); ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2; lines = []; gap = W / (s.length + 1);
+            for(let i=0; i<s.length; i++) { ctx.beginPath(); ctx.moveTo(gap*(i+1), 0); ctx.lineTo(gap*(i+1), H); ctx.stroke(); }
+            for(let i=0; i<s.length-1; i++){
+                let count=0; while(count < 5){
+                    let y = Math.random()*(H-100)+50;
+                    if(!lines.some(l => Math.abs(l.y - y) < 30)){ lines.push({i, y}); ctx.beginPath(); ctx.moveTo(gap*(i+1), y); ctx.lineTo(gap*(i+2), y); ctx.stroke(); count++; }
                 }
             }
+            if(autoTimer) clearTimeout(autoTimer);
+            autoTimer = setTimeout(() => { 사다리시작(); }, 2000);
         }
 
-        async function 순차추첨() {
-            document.getElementById('시작버튼').style.display = 'none';
-            for (let i = 0; i < targets.length; i++) {
-                await 이동(targets[i], i);
-                await new Promise(r => setTimeout(r, 600));
-            }
+        async function 사다리시작() {
+            document.getElementById('상태바').style.display='none';
+            document.getElementById('스킵버튼').style.display='inline-block';
+            for(let i=0; i<targets.length; i++) { if(isSkipped) return; await 추첨(targets[i], i); await new Promise(r=>setTimeout(r, 400)); }
+            if(!isSkipped) 완결(결과감독찾기());
         }
 
-        function 이동(g, startIdx) {
-            return new Promise((resolve) => {
-                const runner = document.getElementById(g + '_러너'); runner.style.visibility = 'visible';
+        function 결과감독찾기() {
+            let finalMap = [];
+            targets.forEach((g, startIdx) => {
+                let curI = startIdx;
+                let sortedLines = [...lines].sort((a,b)=>a.y-b.y);
+                sortedLines.forEach(l => { if(l.i === curI || l.i === curI-1) curI = (l.i === curI) ? curI+1 : curI-1; });
+                finalMap[curI] = g;
+            });
+            return finalMap[winIdx];
+        }
+
+        function 스킵() {
+            isSkipped = true;
+            document.getElementById('스킵버튼').style.display='none';
+            ctx.clearRect(0, 0, W, H);
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2;
+            for(let i=0; i<targets.length; i++) { ctx.beginPath(); ctx.moveTo(gap*(i+1), 0); ctx.lineTo(gap*(i+1), H); ctx.stroke(); }
+            lines.forEach(l => { ctx.beginPath(); ctx.moveTo(gap*(l.i+1), l.y); ctx.lineTo(gap*(l.i+2), l.y); ctx.stroke(); });
+
+            targets.forEach((g, idx) => {
+                const r = document.getElementById(g+'_러너'); r.style.visibility = 'visible';
                 const color = getComputedStyle(document.documentElement).getPropertyValue('--'+g);
-                const gap = W / (targets.length + 1);
-                let curI = startIdx, curY = 0, speed = 3, used = [];
+                ctx.strokeStyle = color; ctx.lineWidth = 6;
+                let curI = idx; let sortedLines = [...lines].sort((a,b)=>a.y-b.y);
+                ctx.beginPath(); ctx.moveTo(gap*(curI+1), 0);
+                sortedLines.forEach(l => { if(l.i === curI || l.i === curI-1) { ctx.lineTo(gap*(curI+1), l.y); curI = (l.i === curI) ? curI+1 : curI-1; ctx.lineTo(gap*(curI+1), l.y); } });
+                ctx.lineTo(gap*(curI+1), H); ctx.stroke();
+                r.style.left = gap*(curI+1)+'px'; r.style.top = H+'px';
+            });
+            완결(결과감독찾기());
+        }
 
+        function 추첨(g, startIdx) {
+            return new Promise(resolve => {
+                const r = document.getElementById(g+'_러너'); r.style.visibility='visible';
+                const color = getComputedStyle(document.documentElement).getPropertyValue('--'+g);
+                let curI=startIdx, curY=0, used=[];
                 const tick = setInterval(() => {
-                    ctx.strokeStyle = color; ctx.lineWidth = 6;
-                    let curX = gap * (curI + 1);
-                    runner.style.left = curX + 'px'; runner.style.top = curY + 'px';
-
-                    ctx.beginPath(); ctx.moveTo(curX, curY);
-                    curY += speed; ctx.lineTo(curX, curY); ctx.stroke();
-
-                    for(let l of lines) {
-                        if(!used.includes(l) && Math.abs(l.y - curY) < speed) {
-                            if(l.i === curI || l.i === curI - 1) {
-                                used.push(l); clearInterval(tick);
-                                let targetI = (l.i === curI) ? curI + 1 : curI - 1;
-                                가로(curX, gap*(targetI+1), l.y, g, runner).then(() => {
-                                    연속(g, targetI, l.y + speed, used, runner, resolve);
-                                });
-                                return;
-                            }
-                        }
-                    }
-                    if(curY >= H) { clearInterval(tick); if(curI === winIdx) 끝(g); resolve(); }
+                    if(isSkipped) { clearInterval(tick); resolve(); return; }
+                    let curX=gap*(curI+1); r.style.left=curX+'px'; r.style.top=curY+'px';
+                    ctx.strokeStyle=color; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(curX,curY);
+                    curY+=4; ctx.lineTo(curX,curY); ctx.stroke();
+                    let l = lines.find(line => !used.includes(line) && Math.abs(line.y-curY)<4 && (line.i===curI || line.i===curI-1));
+                    if(l){ used.push(l); clearInterval(tick); let nextI = (l.i===curI)?curI+1:curI-1; 가로(curX, gap*(nextI+1), l.y, color, r).then(()=>{ 이동연속(g,nextI,l.y+4,used,color,r,resolve); }); }
+                    if(curY>=H){ clearInterval(tick); resolve(); }
                 }, 16);
             });
         }
 
-        function 연속(g, i, y, used, runner, resolve) {
-            let curI = i, curY = y, speed = 3;
-            const gap = W / (targets.length + 1);
-            const color = getComputedStyle(document.documentElement).getPropertyValue('--'+g);
+        function 이동연속(g,i,y,used,color,r,resolve) {
+            let curI=i, curY=y;
             const tick = setInterval(() => {
-                ctx.strokeStyle = color; ctx.lineWidth = 6;
-                let curX = gap * (curI + 1);
-                runner.style.left = curX + 'px'; runner.style.top = curY + 'px';
-                ctx.beginPath(); ctx.moveTo(curX, curY);
-                curY += speed; ctx.lineTo(curX, curY); ctx.stroke();
-                for(let l of lines) {
-                    if(!used.includes(l) && Math.abs(l.y - curY) < speed) {
-                        if(l.i === curI || l.i === curI - 1) {
-                            used.push(l); clearInterval(tick);
-                            let targetI = (l.i === curI) ? curI + 1 : curI - 1;
-                            가로(curX, gap*(targetI+1), l.y, g, runner).then(() => {
-                                연속(g, targetI, l.y + speed, used, runner, resolve);
-                            });
-                            return;
-                        }
-                    }
-                }
-                if(curY >= H) { clearInterval(tick); if(curI === winIdx) 끝(g); resolve(); }
+                if(isSkipped) { clearInterval(tick); resolve(); return; }
+                let curX=gap*(curI+1); r.style.left=curX+'px'; r.style.top=curY+'px';
+                ctx.strokeStyle=color; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(curX,curY);
+                curY+=4; ctx.lineTo(curX,curY); ctx.stroke();
+                let l = lines.find(line => !used.includes(line) && Math.abs(line.y-curY)<4 && (line.i===curI || line.i===curI-1));
+                if(l){ used.push(l); clearInterval(tick); let nextI = (l.i===curI)?curI+1:curI-1; 가로(curX, gap*(nextI+1), l.y, color, r).then(()=>{ 이동연속(g,nextI,l.y+4,used,color,r,resolve); }); }
+                if(curY>=H){ clearInterval(tick); resolve(); }
             }, 16);
         }
 
-        function 가로(x1, x2, y, g, runner) {
-            return new Promise((resolve) => {
-                let step = 0, total = 40; // 묵직한 가로 이동
-                const color = getComputedStyle(document.documentElement).getPropertyValue('--'+g);
-                const tm = setInterval(() => {
-                    ctx.strokeStyle = color; ctx.beginPath();
-                    let nowX = x1 + (x2 - x1) * (step / total);
-                    ctx.moveTo(nowX, y); step++;
-                    let nextX = x1 + (x2 - x1) * (step / total);
-                    ctx.lineTo(nextX, y); ctx.stroke();
-                    runner.style.left = nextX + 'px'; runner.style.top = y + 'px';
-                    if(step >= total) { clearInterval(tm); resolve(); }
+        function 가로(x1, x2, y, color, r) {
+            return new Promise(resolve => {
+                let step=0, total=30;
+                const anim = setInterval(() => {
+                    if(isSkipped) { clearInterval(anim); resolve(); return; }
+                    let nowX=x1+(x2-x1)*(step/total); r.style.left=nowX+'px'; r.style.top=y+'px';
+                    ctx.strokeStyle=color; ctx.beginPath(); ctx.moveTo(nowX,y); step++;
+                    ctx.lineTo(x1+(x2-x1)*(step/total),y); ctx.stroke();
+                    if(step>=total){ clearInterval(anim); resolve(); }
                 }, 10);
             });
         }
 
-        function 끝(win) {
-            const t = document.getElementById('결과글자');
-            t.innerText = win + " 영입!"; t.style.color = getComputedStyle(document.documentElement).getPropertyValue('--'+win);
-            document.getElementById('결과팝업').style.display = 'block';
-            document.getElementById('확정버튼').style.display = 'inline-block';
-            targets.forEach(g => { if(g !== win) 픽[g] = 픽[g].filter(x => x !== currentS); });
-            localStorage.setItem('ow_draft_v22', JSON.stringify(픽));
+        function 완결(win) {
+            const popup = document.getElementById('결과팝업');
+            const txt = document.getElementById('결과글자');
+            txt.innerText = `${win} 감독님, ${currentS} 영입 성공!`;
+            txt.style.color = getComputedStyle(document.documentElement).getPropertyValue('--'+win);
+            popup.style.display = 'block';
+            document.getElementById('닫기버튼').style.display='inline-block';
+            document.getElementById('스킵버튼').style.display='none';
+            targets.forEach(g => { if(g !== win) { let p = (실시간데이터[g] || []).filter(x => x !== currentS); db.ref('draft/' + g).set(p); } });
         }
 
-        function 복귀() {
-            document.getElementById('사다리화면').style.display = 'none';
-            document.getElementById('메인화면').style.display = 'block';
-            경합체크(); 그리기();
-        }
+        function 사다리닫기() { 추첨중 = false; document.getElementById('사다리화면').style.display='none'; document.getElementById('메인화면').style.display='flex'; }
     </script>
 </body>
 </html>
